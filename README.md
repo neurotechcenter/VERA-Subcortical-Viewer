@@ -1,15 +1,31 @@
-# Plotting-subcortical-structures-using-VREA
-a tutorial for plotting subcortical structures using VERa
+# VERA Subcortical Viewer
 
+Explore electrode contacts and labeled brain structures together in an interactive 3-D view. The viewer reads a FreeSurfer segmentation directly. It generates a standalone HTML file that opens locally in a browser.
 
-Make a 3D model from ASERG+APRARC segmentation.
+## Quick start
 
-ASEG is a volume segmentation (for example, it will give you labels for cortex, white matter, hippocampus, and thalamus), but in ASEG, all cortex will just be labeled cortex.
+Install Python dependencies with `python -m pip install nibabel numpy scipy scikit-image plotly` (Plotly 5.5 or newer). From the repository folder, run:
 
-APRARC is a type of cortical segmentation (insula, premotor, ...). ASERG+APRARC combines those two together.
+```sh
+python vera_subcortical_viewer.py /path/to/subject/mri/aparc+aseg.mgz electrodes.tsv --space scanner --out viewer.html
+```
 
-Within the SEEG_full pipeline of VERA, the identifier ASEG will use aseg+aparc from Freesurfer.
+Open `viewer.html`. Click the checkboxes to show structures and electrode contacts together. Type part of a name to filter the lists. Drag the scene to rotate and scroll to zoom. Contacts start visible; surfaces start hidden. The output embeds the selected subject's geometry and all supplied coordinates.
 
-There is a component called "LabelVolume2Surface." Use as ASEG and an appropriate surface identifier name. And then use a matouput component to save it as mat file.
+## Inputs and coordinate system
 
-An example of MATLAB code visualizing just some parts of the 3d model is included.
+- **Segmentation:** A 3-D integer-label volume such as `aseg.mgz` or `aparc+aseg.mgz`. Each nonzero integer becomes a selectable surface. For individual thalamic nuclei, supply a segmentation that distinguishes those nuclei.
+- **Label names and colors:** Set `FREESURFER_HOME` or supply `--lut /path/to/FreeSurferColorLUT.txt`. Use the table corresponding to your segmentation. Unlisted labels appear by numeric ID.
+- **Electrode positions:** A tab-separated text file with a header and one contact per row. The coordinates below illustrate the format.
+
+```text
+name	x	y	z
+A1	12.0	-15.0	8.0
+A2	13.5	-14.0	9.0
+```
+
+Use `--space scanner` for scanner RAS millimeters in the segmentation's physical space. Use `--space tkr` for tkregister (surface) RAS millimeters referenced to the **same voxel geometry** as the input MGZ/MGH. A cropped or resampled segmentation can have a different tkregister frame. Register CT, template-space, or other coordinates to the subject first. The viewer does not estimate registration.
+
+## Original VERA / MATLAB workflow
+
+For a VERA export, the [LabelVolume2Surface component](LabelVolume2Surface%20component) and [MatOutput component](matoutput%20component) illustrate how to save a labeled surface. The [original MATLAB example](example_plot_3D) selects three thalamic labels. The Python viewer can be run independently of that workflow.
