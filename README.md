@@ -2,7 +2,24 @@
 
 Explore electrode contacts and labeled brain structures together in an interactive 3-D view. The viewer reads a FreeSurfer segmentation directly. It generates a standalone HTML file that opens locally in a browser.
 
-## Quick start
+## MATLAB desktop viewer
+
+Open this repository in MATLAB R2021a or newer. Add the FreeSurfer MATLAB utilities to the path, then launch the viewer:
+
+```matlab
+addpath(fullfile(getenv('FREESURFER_HOME'), 'matlab'))
+vera_subcortical_viewer
+```
+
+Choose an MGZ/MGH segmentation, a contact TSV, and the contact coordinate convention. Check a surface to draw it, or uncheck individual contacts to hide them. Drag to rotate, and use data tips to identify contacts. Surfaces are generated on first selection. To open a known dataset directly:
+
+```matlab
+vera_subcortical_viewer('aparc+aseg.mgz', 'electrodes.tsv', 'scanner')
+```
+
+Use an optional fourth argument for a custom FreeSurfer color lookup table. The MATLAB and Python viewers share the input conventions below.
+
+## Python standalone HTML viewer
 
 Install Python dependencies with `python -m pip install nibabel numpy scipy scikit-image plotly` (Plotly 5.5 or newer). From the repository folder, run:
 
