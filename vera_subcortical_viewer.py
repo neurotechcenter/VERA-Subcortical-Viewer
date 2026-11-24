@@ -9,6 +9,7 @@ import nibabel as nib
 import numpy as np
 import plotly.graph_objects as go
 from scipy.ndimage import find_objects
+from scipy.sparse import coo_matrix
 from skimage.measure import marching_cubes
 
 
@@ -35,7 +36,23 @@ def contacts(path, transform):
             yield row["name"].strip(), nib.affines.apply_affine(transform, xyz)
 
 
-def build(segmentation, electrode_file, space, lut):
+def smooth_mesh(vertices, faces, passes=5):
+    """Taubin smoothing in display space, retaining face connectivity."""
+    if passes == 0:
+        return vertices
+    edges = np.vstack((faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]))
+    row, col = np.vstack((edges, edges[:, ::-1])).T
+    adjacency = coo_matrix((np.ones(len(row)), (row, col)),
+                           shape=(len(vertices), len(vertices))).tocsr()
+    adjacency.data[:] = 1
+    weights = adjacency.multiply(1 / np.maximum(adjacency.sum(axis=1).A, 1)).tocsr()
+    for _ in range(passes):
+        for step in (0.5, -0.53):
+            vertices = vertices + step * (weights @ vertices - vertices)
+    return vertices
+
+
+def build(segmentation, electrode_file, space, lut, smooth=True):
     image = nib.load(str(segmentation))
     voxels = np.asanyarray(image.dataobj)
     if voxels.ndim != 3 or not np.issubdtype(voxels.dtype, np.integer) or voxels.min() < 0:
@@ -59,6 +76,8 @@ def build(segmentation, electrode_file, space, lut):
         vertices, faces, _, _ = marching_cubes(mask.astype(np.float32), level=0.5)
         origin = np.array([axis.start for axis in box]) - 1
         xyz = nib.affines.apply_affine(affine, vertices + origin)
+        if smooth:
+            xyz = smooth_mesh(xyz, faces)
         name, color = lut.get(int(label), (f"Label {label}", None))
         fig.add_mesh3d(x=xyz[:, 0], y=xyz[:, 1], z=xyz[:, 2],
                        i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
@@ -118,8 +137,9 @@ def main():
     default_lut = Path(os.environ.get("FREESURFER_HOME", ".")) / "FreeSurferColorLUT.txt"
     parser.add_argument("--lut", type=Path, default=default_lut if default_lut.is_file() else None)
     parser.add_argument("--out", type=Path, default=Path("vera-viewer.html"))
+    parser.add_argument("--raw-surfaces", action="store_true", help="Display the original voxel-derived meshes.")
     args = parser.parse_args()
-    fig, groups = build(args.segmentation, args.electrodes, args.space, read_lut(args.lut))
+    fig, groups = build(args.segmentation, args.electrodes, args.space, read_lut(args.lut), smooth=not args.raw_surfaces)
     write_viewer(fig, groups, args.out)
     print(f"{groups.count('Surfaces')} surfaces, {groups.count('Electrodes')} electrodes: {args.out}")
 
