@@ -1,7 +1,8 @@
-function fig = vera_subcortical_viewer(segFile, electrodeFile, space, lutFile)
+function fig = vera_subcortical_viewer(segFile, electrodeFile, space, lutFile, smoothSurfaces)
 % Interactively display a FreeSurfer segmentation and implanted contacts.
 % Run without arguments for file pickers, or supply paths and scanner/tkr.
 % Requires MATLAB R2021a or later and FreeSurfer's MATLAB directory on path.
+if nargin < 5, smoothSurfaces = true; end
 fig = [];
 if nargin < 1
     [f,p] = uigetfile({'*.mgz;*.mgh','FreeSurfer segmentation'});
@@ -99,6 +100,9 @@ electrodes.CheckedNodesChangedFcn = @updateContacts;
                 fv = isosurface(mask,0.5);
                 % Local padded vertex 2 corresponds to global zero-based lo-1.
                 fv.vertices = transformPoints(mri.vox2ras0,double(fv.vertices)+lo-3);
+                if smoothSurfaces
+                    fv.vertices = smoothDisplayMesh(fv.vertices,fv.faces);
+                end
                 meshes(j) = patch(ax,'Faces',fv.faces,'Vertices',fv.vertices, ...
                     'FaceColor',colors(j,:),'FaceAlpha',0.4,'EdgeColor','none');
             elseif isgraphics(meshes(j))
@@ -135,6 +139,20 @@ for k = 1:numel(rows)
     if matched
         names(j) = compose("%s [%d]",fields(2),ids(j));
         colors(j,:) = reshape(str2double(fields(3:5)),1,3)/255;
+    end
+end
+end
+
+function vertices = smoothDisplayMesh(vertices,faces)
+% Taubin smoothing changes display vertices only.
+edges = [faces(:,[1 2]); faces(:,[2 3]); faces(:,[3 1])];
+n = size(vertices,1);
+adj = sparse(edges(:,1),edges(:,2),1,n,n);
+adj = spones(adj + adj.');
+weights = spdiags(1 ./ max(sum(adj,2),1),0,n,n) * adj;
+for pass = 1:5
+    for step = [0.5 -0.53]
+        vertices = vertices + step * (weights*vertices - vertices);
     end
 end
 end
